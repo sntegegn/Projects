@@ -75,15 +75,15 @@ const InputWithLabel = ({id, type, value, onInputChange, isFocused, children}) =
     )
 }
 
-const List = ( {list, OnRemoveItem} ) => {
+const List = ( {list, OnRemoveItem} ) => (
     <ul>
     {list.map((item) => (
       <Item key = {item.objectID} item = {item} OnRemoveItem = {OnRemoveItem}/>
     ))}
     </ul>
-};
+  );
 
-  const Item = ({item, OnRemoveItem}) => {
+const Item = ({item, OnRemoveItem}) => {
      return(   
       <li>
         <span>
