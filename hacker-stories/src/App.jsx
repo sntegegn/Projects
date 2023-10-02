@@ -1,8 +1,16 @@
 import * as React from 'react'
 /* eslint-disable react/prop-types */
 
+const useStorageState = (key, initalState) => {
+  const [value, setValue] = React.useState(localStorage.getItem(key) || initalState)
+  React.useEffect(()=> {
+    localStorage.setItem(key, value)}, [value, key]
+  )
+  return [value, setValue]
+}
+
 const App = () =>  {
-  const stories = [
+  const initailStories = [
     {
       title : 'React',
       url : 'https://reactjs.org/',
@@ -21,11 +29,20 @@ const App = () =>  {
     }
   ];
 
-  const [searchTerm, setSearchTerm] = React.useState('React');
+  const [searchTerm, setSearchTerm] = useStorageState('search', 'React');
+
+  const [stories, setStories] = React.useState(initailStories)
 
   const handleSearch = (event) =>{
     setSearchTerm(event.target.value)
   };
+
+  const handleRemoveStory = (item) => {
+    const newStories = stories.filter(
+      (story) => item.objectID != story.objectID
+    )
+    setStories(newStories)
+  }
 
   const searchedStories = stories.filter((story) => 
       story.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -36,43 +53,52 @@ const App = () =>  {
         Hello World
       </h1>
 
-      <Search search = {searchTerm} onSearch = {handleSearch}/>
+      <InputWithLabel id = "search" value = {searchTerm} isFocused onInputChange = {handleSearch}>
+        <strong> Search: </strong>
+      </InputWithLabel>
+
       <p>
         This is what you searched {searchTerm}
       </p>
       <hr />
-      <List list= {searchedStories} />
+      <List list= {searchedStories} OnRemoveItem = {handleRemoveStory} />
 
     </div>
   )}
 
-const Search = ({search, onSearch}) => {
+const InputWithLabel = ({id, type, value, onInputChange, isFocused, children}) => {
   return(
-    <div>
-      <label htmlFor='search'>Search</label>
-      <input id = 'search' type='text' value = {search} onChange= {onSearch}/>
-
-    </div>
+    <>
+      <label htmlFor={id}> {children} </label>
+      <input id = {id} type={type} value = {value} autoFocus = {isFocused} onChange= {onInputChange}/>
+    </>
     )
 }
 
-const List = ( {list} ) => (
+const List = ( {list, OnRemoveItem} ) => {
     <ul>
-    {list.map(( {objectID, ...item} ) => (
-      <Item key = {objectID} {...item} />
+    {list.map((item) => (
+      <Item key = {item.objectID} item = {item} OnRemoveItem = {OnRemoveItem}/>
     ))}
     </ul>
-  );
+};
 
-  const Item = ({title, url, author, num_comments, points}) => {
-    return(   
+  const Item = ({item, OnRemoveItem}) => {
+     return(   
       <li>
         <span>
-          <a href = {url}>{title}</a>
+          <a href = {item.url}>{item.title}</a>
         </span>
-        <span>{author}</span>
-        <span>{num_comments}</span>
-        <span>{points}</span>
+        <span>{item.author}</span>
+        <span>{item.num_comments}</span>
+        <span>{item.points}</span>
+        <span>
+          <button type = 'button' onClick = {() =>
+            OnRemoveItem(item)
+          }>
+            Dismiss
+          </button>
+        </span>
       </li>
     )
   }
