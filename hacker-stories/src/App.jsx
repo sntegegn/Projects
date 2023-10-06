@@ -1,5 +1,15 @@
-import * as React from 'react'
 /* eslint-disable react/prop-types */
+/* eslint-disable react-hooks/exhaustive-deps*/
+
+import * as React from 'react'
+import axios from 'axios'
+
+const storiesFetchInit = 'STORIES_FETCH_INIT'
+const storiesFetchSuccess = 'STORIES_FETCH_SUCCESS'
+const storiesFetchFailure = 'STORIES_FETCH_FAILURE'
+const removeStory = 'REMOVE_STORY'
+
+const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query='
 
 const useStorageState = (key, initalState) => {
   const [value, setValue] = React.useState(localStorage.getItem(key) || initalState)
@@ -9,60 +19,130 @@ const useStorageState = (key, initalState) => {
   return [value, setValue]
 }
 
+
+const storiesReducer = (state, action) => {
+  switch (action.type) {
+    case storiesFetchInit:
+      return {
+        ...state,
+        isLoading: true,
+        isError: false,
+      }
+    case storiesFetchSuccess:
+      return {
+        ...state,
+        isLoading: false,
+        isError: false,
+        data: action.payload,
+      }
+    case storiesFetchFailure:
+      return {
+        ...state,
+        isLoading: false,
+        isError: true
+      }
+    case removeStory:
+      return {
+        ...state,
+        data: state.data.filter((story) =>
+          action.payload.objectID !== story.objectID
+        ),
+      }
+    default:
+      throw new Error()
+  }
+}
+
+const SearchForm = ({
+  searchTerm,
+  onSearchInput,
+  onSearchSubmit,
+}) => (
+    <form onSubmit = {onSearchSubmit}>
+      <InputWithLabel id = "search" value = {searchTerm} isFocused onInputChange = {onSearchInput}>
+        <strong> Search: </strong>
+      </InputWithLabel>
+
+      <button type = "submit" disabled = {!searchTerm}>
+        Submit 
+      </button>
+    </form>
+  )
+
 const App = () =>  {
-  const initailStories = [
-    {
-      title : 'React',
-      url : 'https://reactjs.org/',
-      author : 'Jordan Walke',
-      num_comments : 3,
-      points : 4,
-      objectID: 0,
-    },
-    {
-      title : 'Redux',
-      url : 'https://redux.js.org/',
-      author : 'Dan Abramov, Andrew Clark',
-      num_comments : 2,
-      points : 5,
-      objectID: 1,
-    }
-  ];
 
   const [searchTerm, setSearchTerm] = useStorageState('search', 'React');
 
-  const [stories, setStories] = React.useState(initailStories)
+  const[url, setUrl] = React.useState(`${API_ENDPOINT}${searchTerm}`)
 
-  const handleSearch = (event) =>{
+  const handleSearchInput = (event) =>{
     setSearchTerm(event.target.value)
   };
 
-  const handleRemoveStory = (item) => {
-    const newStories = stories.filter(
-      (story) => item.objectID != story.objectID
-    )
-    setStories(newStories)
+  const handleSearchSubmit = (event) => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`)
+    event.preventDefault()
   }
 
-  const searchedStories = stories.filter((story) => 
-      story.title.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const [stories, dispatchStories] = React.useReducer(
+    storiesReducer, 
+    {data: [], isLoading: false, isError: false}
+    )
+  
+  const handleFetchStories = React.useCallback(async () => {
+    dispatchStories(
+      {
+        type: storiesFetchInit
+      }
+    )
+    try { 
+      const result = await axios.get(url)
+
+      dispatchStories({
+        type : storiesFetchSuccess,
+        payload: result.data.hits
+      });
+    } catch {
+      dispatchStories({
+        type : storiesFetchFailure
+      })
+    }
+  }, [url])
+
+  React.useEffect(() =>{
+    handleFetchStories()
+  }, [handleFetchStories])
+
+  
+
+  const handleRemoveStory = (item) => {
+    dispatchStories({
+      type: removeStory,
+      payload: item
+    })
+  }
+
   return(
     <div>
       <h1>
         Hello World
       </h1>
 
-      <InputWithLabel id = "search" value = {searchTerm} isFocused onInputChange = {handleSearch}>
-        <strong> Search: </strong>
-      </InputWithLabel>
+      <SearchForm  searchTerm={searchTerm} onSearchInput={handleSearchInput} onSearchSubmit={handleSearchSubmit} />
 
       <p>
         This is what you searched {searchTerm}
       </p>
       <hr />
-      <List list= {searchedStories} OnRemoveItem = {handleRemoveStory} />
 
+      {stories.isError && <p> Something went wrong... </p>}
+
+      { stories.isLoading ? (
+        <p> Loading... </p>
+      ) : (
+        <List list= {stories.data} OnRemoveItem = {handleRemoveStory} />
+      )    
+      }
     </div>
   )}
 
